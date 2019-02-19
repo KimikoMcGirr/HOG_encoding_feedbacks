@@ -1,0 +1,10 @@
+Steps for changing a model:
+1. Rename filename:
+	data_fittodata_#i's_#g's_model.py (make sure last 9 chars are unique)
+	EX / 180712_WT_T100A_250i_160g_5nfb3pfb_noD.py
+2. Change number of params (and other EA params)
+3. Change conversion matrix boundaries
+4. Change model
+5. Replace model fxn (2 places in code)
+6. Replace param inits and unpacking (2 comments and 2 places in code)
+7. Change params depanding if running local or on the cluster (# print statement)

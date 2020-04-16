@@ -1,0 +1,376 @@
+import numpy as np
+from scipy.optimize import fsolve
+from scipy.integrate import odeint
+import seaborn as sns
+import pandas as pd
+import pathlib
+import collections
+import h5py
+import os
+
+def get_data(): #HACK
+
+    # wt_folder = '/nas/longleaf/home/sksuzuki/HOG_model/data/MAPK activation/WT'
+    # t100a_folder = '/nas/longleaf/home/sksuzuki/HOG_model/data/MAPK activation/T100A'
+    # pbs2_folder = '/nas/longleaf/home/sksuzuki/HOG_model/data/MAPK activation/Pbs2'
+    # pbs2_t100a_folder = '/nas/longleaf/home/sksuzuki/HOG_model/data/MAPK activation/Pbs2_T100A'
+    # ramp_folder = '/nas/longleaf/home/sksuzuki/HOG_model/data/MAPK activation/ramp_1'
+    # ptpD_folder = '/nas/longleaf/home/sksuzuki/HOG_model/data/MAPK activation/ptpD'
+    wt_folder = 'C:/Users/sksuzuki/Desktop/killdevil/data/MAPK activation/WT'
+    t100a_folder = 'C:/Users/sksuzuki/Desktop/killdevil/data/MAPK activation/T100A'
+    pbs2_folder = 'C:/Users/sksuzuki/Desktop/killdevil/data/MAPK activation/Pbs2'
+    pbs2_t100a_folder = 'C:/Users/sksuzuki/Desktop/killdevil/data/MAPK activation/Pbs2_T100A'
+    hog1_ramp_folder = 'C:/Users/sksuzuki/Desktop/killdevil/data/MAPK activation/ramp_1'
+    ptpD_folder = 'C:/Users/sksuzuki/Desktop/killdevil/data/MAPK activation/ptpD'
+
+    mapk_time, mapk_wt_data = load_csv_data(wt_folder)
+    mapk_time, mapk_t100a_data = load_csv_data(t100a_folder)
+    # mapk_data_t100a_long = [mapk_t100a_data[0]]
+    mapk_time_t100a_long = [0, 2, 5, 10, 15, 20, 25, 30, 60, 90, 120, 150, 180, 240, 300]
+
+    mapk_time, map2k_wt_data = load_csv_data(pbs2_folder)
+    mapk_time, map2k_t100a_data = load_csv_data(pbs2_t100a_folder)
+    mapk_ramp_time, hog1_ramp_data = load_csv_data(hog1_ramp_folder)
+    mapk_time, mapk_ptpD_data = load_csv_data(ptpD_folder)
+    # mapk_time, sho1_wt_data = load_csv_data(ssk1D_folder)
+    # mapk_time, sln1_wt_data = load_csv_data(sho1DD_folder)
+    data = [mapk_wt_data, mapk_t100a_data, map2k_wt_data, map2k_t100a_data, hog1_ramp_data, mapk_ptpD_data]
+    time = [mapk_time, mapk_time_t100a_long, mapk_ramp_time]
+    return data, time
+
+def load_csv_data(folder):
+    data = []
+    for csv in pathlib.Path(folder).glob('*.csv'):
+        f_data = pd.read_csv(csv)
+        time = f_data['Time'].tolist()
+        f_data=f_data.set_index('Time')
+        f_data = f_data.mean(axis=1)
+        f_data = f_data.tolist()
+        data.append(f_data)
+    return time, data
+
+def molarity_conversion(molecules):
+    Na = 6.02214076*10**23
+    cell_volume = 44                                 # volume of a yeast cell
+    return molecules/(Na*cell_volume*10**-15)*1000000 # returns uM
+
+class Model():
+    def __init__(self, m, t100a, nopos=None, inhib=None):
+        self.m = m
+        self.t100a = t100a
+        self.nopos = nopos
+        self.inhib = inhib
+
+
+def M2c_kb(initials,t,total_protein,sig,params,run_type=None):
+    # print(initials)
+    # if run_type:
+    #     if run_type[0] == 'ramp':
+    #         sig = signal_ramp_special(t)
+    #     elif run_type[0] == 'rand':
+    #         sig = get_ramp_signal(t, run_type[1])
+    #     elif run_type[0] == 'man':
+    #         sig = get_manual_signal(t)
+
+    MAP3K, MAP2K, MAPK, gly = initials
+    MAP3K_t, MAP2K_t, MAPK_t, _ = total_protein
+    beta_3, alpha, kb, k1, k3, k5, s7, k2, k4, k6, d8, K_1, K_3, K_5, K_2, K_4, K_6 = params #17
+
+    MAP3K_I = MAP3K_t-MAP3K
+    MAP2K_I = MAP2K_t-MAP2K
+    MAPK_I = MAPK_t-MAPK
+
+    dMAP3K = (((sig*k1 + kb)/(1+gly/beta_3))*MAP3K_I)/(K_1+MAP3K_I) - (k2*MAP3K/(K_2+MAP3K))
+    dMAP2K = (((k3)*MAP3K*MAP2K_I)/(K_3+MAP2K_I)) - (k4*MAP2K/(K_4+MAP2K))
+    dMAPK = (((k5*MAP2K + MAPK*alpha))*MAPK_I)/(K_5+MAPK_I) - (k6*MAPK)/(K_6+MAPK)  #bug
+    dgly = s7*MAPK - d8*gly
+    return dMAP3K, dMAP2K, dMAPK, dgly
+
+def simulate_t100a_experiment_M2a_kb(m, inits, total_protein, sig, learned_params, time,  run_type=None):
+    beta_3, alpha, kb, k1, k3, k5, s7, k2, k4, k6, d8, K_1, K_3, K_5, K_2, K_4, K_6 = learned_params #17
+    learned_params = beta_3, 0, kb, k1, k3, k5, 0, k2, k4, k6, d8, K_1, K_3, K_5, K_2, K_4, K_6
+    #solve odes:
+    odes = odeint(m, inits, time, args=(total_protein, sig, learned_params, run_type))
+    return odes
+
+def simulate_nopos_experiment_M2a_kb(m, inits, total_protein, sig, learned_params, time,  run_type=None):
+    beta_3, alpha, kb, k1, k3, k5, s7, k2, k4, k6, d8, K_1, K_3, K_5, K_2, K_4, K_6 = learned_params #17
+    learned_params = beta_3, 0, kb, k1, k3, k5, s7, k2, k4, k6, d8, K_1, K_3, K_5, K_2, K_4, K_6
+    #solve odes:
+    odes = odeint(m, inits, time, args=(total_protein, sig, learned_params, run_type))
+    return odes
+
+def M2c_kb_on_off(initials,t,total_protein,sig,params, run_type=None):
+    # if run_type:
+    #     if run_type[0] == 'ramp':
+    #         sig = signal_ramp_special(t)
+    #     elif run_type[0] == 'rand':
+    #         sig = get_ramp_signal(t, run_type[1])
+    #     elif run_type[0] == 'man':
+    #         sig = get_manual_signal(t)
+    MAP3K, MAP2K, MAPK, gly = initials
+    MAP3K_t, MAP2K_t, MAPK_t, _ = total_protein
+    beta_3, alpha, kb, k1, k3, k5, s7, k2, k4, k6, d8, K_1, K_3, K_5, K_2, K_4, K_6 = params #17
+
+    if t > 5:
+        alpha = 0
+        s7 = 0
+
+    MAP3K_I = MAP3K_t-MAP3K
+    MAP2K_I = MAP2K_t-MAP2K
+    MAPK_I = MAPK_t-MAPK
+    # PTP_I = PTP_t-PTP
+    dMAP3K = (((sig*k1 + kb)/(1+gly/beta_3))*MAP3K_I)/(K_1+MAP3K_I) - (k2*MAP3K/(K_2+MAP3K))
+    dMAP2K = (((k3*MAP3K)*MAP2K_I)/(K_3+MAP2K_I)) - (k4*MAP2K/(K_4+MAP2K))
+    dMAPK = ((k5*MAP2K + MAPK*alpha)*MAPK_I)/(K_5+MAPK_I) - (k6*MAPK)/(K_6+MAPK)
+    dgly = s7*MAPK - d8*gly
+    return dMAP3K, dMAP2K, dMAPK, dgly
+
+def run_ss(m, inits, total_protein, learned_params):
+    ss = fsolve(m, inits, args=(0,total_protein, 0, learned_params))
+    return ss
+
+def simulate_wt_experiment(m, inits, total_protein, sig, learned_params, time, run_type=None):
+    odes = odeint(m, inits, time, args=(total_protein, sig, learned_params, run_type))
+    return odes
+
+def calc_mse(model_fxns, theta, exp_data, exp_time, params_constants, initials, ptpD=False):
+    # Takes
+    return sum(calc_sim_score(model_fxns, theta, exp_data, exp_time, params_constants, initials, ptpD)[:18]) ##AMY (insert your own error function)
+
+def calc_sim_score(model_fxns, params, data, exp_time, total_protein, inits, ptpD=True):
+#     params = convert_individual(learned_params, arr_conversion_matrix, number_of_params)
+    mapk_wt_data, mapk_t100a_data, map2k_wt_data, map2k_t100a_data, hog1_ramp_data, mapk_ptpD_data = data
+    # mapk_data_t100a_long = [mapk_t100a_data[0]]
+    mapk_time, mapk_time_t100a_long, mapk_ramp_time = exp_time
+    hog1_doses = [0, 50000, 150000, 250000, 350000, 450000, 550000]
+    wt_ss_inits = run_ss(model_fxns.m, inits, total_protein, params)
+    dt = 0.1
+    steps = 601
+    time = np.linspace(0,dt*steps,steps)
+    time_long = np.linspace(0,dt*3001,steps)
+    closest_idxs_mapk = [np.abs(time - t).argmin() for t in mapk_time]
+    closest_idxs_t100a_long = [np.abs(time_long - t).argmin() for t in mapk_time_t100a_long]
+    closest_idxs_ramp_time = [np.abs(time - t).argmin() for t in mapk_ramp_time]
+    mse_total = 0
+    if ptpD:
+        mses = np.zeros(23)
+        ptp_doses = [0, 150000, 350000, 550000]
+        ptpD_total_protein = total_protein[:-1] + [0]
+        ptpD_inits = inits[:-1] + [0]
+        ptpD_ss_inits = run_ss(model_fxns.m, ptpD_inits, ptpD_total_protein, params)
+        for i, (dose, data) in enumerate(zip(ptp_doses, mapk_ptpD_data), 19):
+            odes = simulate_wt_experiment(model_fxns.m, ptpD_ss_inits, ptpD_total_protein, dose, params, time)
+            mapk = odes[:,2]/total_protein[2]*100
+            mses[i] = ((data - mapk[closest_idxs_mapk])**2).mean()
+            mse_total += mses[i]
+    else:
+        mses = np.zeros(19)
+    for i, (dose, data) in enumerate(zip(hog1_doses, mapk_wt_data), 0):
+        odes = simulate_wt_experiment(model_fxns.m, wt_ss_inits, total_protein, dose, params, time)#mapk_time)
+        mapk = odes[:,2]/total_protein[2]*100
+        mses[i] = ((data - mapk[closest_idxs_mapk])**2).mean()
+        mse_total += mses[i]
+        if dose == 150000:
+            map2k = odes[:,1]/total_protein[1]*100
+            mses[14] = ((map2k_wt_data[0] - map2k[closest_idxs_mapk])**2).mean()
+            mse_total += mses[14]
+        elif dose == 550000:
+            map2k = odes[:,1]/total_protein[1]*100
+            mses[15] = ((map2k_wt_data[1] - map2k[closest_idxs_mapk])**2).mean()
+            mse_total += mses[15]
+    for i, (dose, data) in enumerate(zip(hog1_doses, mapk_t100a_data), 7):
+        if dose == 0:
+            odes = model_fxns.t100a(model_fxns.m, wt_ss_inits, total_protein, dose, params, time_long)
+            mapk = odes[:,2]/total_protein[2]*100
+            mses[i] = ((data - mapk[closest_idxs_t100a_long])**2).mean()
+            mse_total += mses[i]
+        else:
+            odes = model_fxns.t100a(model_fxns.m, wt_ss_inits, total_protein, dose, params, time)
+            mapk = odes[:,2]/total_protein[2]*100
+            mses[i] = ((data - mapk[closest_idxs_mapk])**2).mean()
+            mse_total += mses[i]
+            # Pbs2
+            if dose == 150000:
+                map2k = odes[:,1]/total_protein[1]*100
+                mses[16] = ((map2k_t100a_data[0] - map2k[closest_idxs_mapk])**2).mean()
+                mse_total += mses[16]
+            elif dose == 550000:
+                map2k = odes[:,1]/total_protein[1]*100
+                mses[17] = ((map2k_t100a_data[1] - map2k[closest_idxs_mapk])**2).mean()
+                mse_total += mses[17]
+    for data in hog1_ramp_data:
+        odes = simulate_wt_experiment(model_fxns.m, wt_ss_inits, total_protein, 0, params, time, run_type=['ramp'])
+        mapk = odes[:,2]/total_protein[2]*100
+        mses[18] = ((data - mapk[closest_idxs_ramp_time])**2).mean()
+    return mses
+
+def draw_theta2():
+    return 10**(-4+(4-(-4))*np.random.random(17))#np.random.uniform(.0001,1000,17)
+
+def draw_thetas2(thetas, weights):
+    return
+
+def step_theta(theta):
+    log_theta = np.log10(theta)
+    theta_prime = np.concatenate([10**(np.random.uniform(x-.1,x+.1,1)) for x in log_theta], axis=0)
+    return theta_prime
+
+def run_schedule_1(ei, num_theta_primes, model_fxns):
+    thetas_ei = []
+    mses_ei = []
+    c = collections.Counter({'Pass': 0, 'Fail': 0})
+    while len(thetas_ei) < num_theta_primes:
+        theta_prime = draw_theta2()
+#         theta = draw_thetas(prior_thetas, probs)
+#         theta_prime = step_theta(theta)
+        mse = calc_mse(model_fxns, theta_prime, exp_data, exp_time, params_constants, initials, ptpD=False) ##AMY error fxn
+        if mse < ei:
+            print("pass")
+            print(mse)
+            c['Pass'] += 1
+            thetas_ei.append(theta_prime)
+            mses_ei.append(mse)
+            if len(mses_ei) % int(num_theta_primes*.1) == 0:
+                print(str(int(len(mses_ei)/num_theta_primes*100)) + "% complete.")
+        else:
+            c['Fail'] += 1
+    return np.asarray(mses_ei), np.asarray(thetas_ei), c
+
+def run_schedule_i(ei, num_theta_primes, model_fxns):
+    thetas_ei = []
+    mses_ei = []
+    c = collections.Counter({'Pass': 0, 'Fail': 0})
+    while len(thetas_ei) < num_theta_primes:
+        theta_prime = draw_theta2()
+#         theta = draw_thetas(prior_thetas, probs)
+#         theta_prime = step_theta(theta)
+        mse = calc_mse(model_fxns, theta_prime, exp_data, exp_time, params_constants, initials, ptpD=False) ##AMY error fxn
+        if mse < ei:
+            c['Pass'] += 1
+            thetas_ei.append(theta_prime)
+            mses_ei.append(mse)
+            if len(mses_ei) % int(num_theta_primes*.1) == 0:
+                print(str(int(len(mses_ei)/num_theta_primes*100)) + "% complete.")
+        else:
+            c['Fail'] += 1
+        c.keys
+    return np.asarray(mses_ei), np.asarray(thetas_ei), np.asarray(c)
+
+def check_dir_exist():
+    stripped_name = strip_filename(save_filename)
+    print(stripped_name)
+    # informed_name = add_info(stripped_name, number_of_generations, number_of_individuals, mutation_rate, crossover_rate)
+    # fn_to_use = informed_name
+    dir_to_use = os.getcwd() + '/' + stripped_name
+    #check if dir exists and make
+    if not os.path.isdir(dir_to_use):
+        os.makedirs(dir_to_use)
+        # print('Made: ' + dir_to_use)
+        # and make README file:
+        fn = dir_to_use + '/' + 'output.txt'
+        file = open(fn, 'w')
+
+        # write pertinent info at top
+        # file.write('OUTPUT\n\n')
+        # file.write('Filename: ' + stripped_name + '\n')
+        # file.write('Directory: ' + dir_to_use + '\n')
+        # file.write('Data file: ' + save_filename + '\n\n')
+        # file.write('Generations: ' + str(number_of_generations) + '\n')
+        # file.write('Individuals: ' + str(number_of_individuals) + '\n')
+        # file.write('Mutation rate: ' + str(mutation_rate) + '\n')
+        # file.write('Crossover rate: ' + str(crossover_rate) + '\n')
+        # file.write('\n\n\n\n')
+
+        #write script to file
+        #script_name = os.getcwd() + '/' + 'EA_1nf1pf.py'
+        script_name = os.path.basename(__file__)#__file__)
+        open_script = open(script_name, 'r')
+        write_script = open_script.read()
+        file.write(write_script)
+        open_script.close()
+
+        file.close()
+
+def get_filename(val):
+    filename_base = dir_to_use + '/' + stripped_name + '_'
+    if val < 10:
+        toret = '000' + str(val)
+    elif 10 <= val < 100:
+        toret = '00' + str(val)
+    elif 100 <= val < 1000:
+        toret = '0' + str(val)
+    else:
+        toret = str(val)
+    return filename_base + toret + '.hdf5'
+
+def strip_filename(fn):
+    #input = full path filename
+    #output = filename only
+    #EX input = '/home/iammoresentient/phd_lab/data/data_posnegfb_3cellsum.pickled'
+    #EX output = 'data_posnegfb_3cellsum'
+    if '/' in fn:
+        fn = fn.split('/')[-1]
+    fn = fn.split('.')[0]
+    return fn
+
+def add_info(fn, gens, inds, mutationrate, crossoverrate):
+    #input = filename only
+    #output = date + filename + EA data
+    # EX input = 'data_posnegfb_3cellsum'
+    # EX output = '170327_data_posnegfb_3cellsum_#g#i#m#c'
+
+    #get current date:
+    cur_date = timeski.strftime('%y%m%d')
+    # setup EA data:
+    ea_data = str(gens) + 'g' + str(inds) + 'i' + str(int(mutationrate*100)) + 'm' + str(int(crossoverrate*100)) + 'c'
+    #put it all together:
+    #new_fn = cur_date + '_' + fn + '_' + ea_data
+    new_fn = cur_date + '_' + os.path.basename(fn).split('.')[0].split('_')[-1] + '_' + ea_data
+    return new_fn
+
+def data_to_hdf5(mses, thetas, c):
+    # arr_to_hdf5 = [arr_best_score, arr_best_ind]
+    counter = 0
+    filename = get_filename(counter)
+    while os.path.isfile(filename) == True:
+        counter += 1
+        filename = get_filename(counter)
+    with h5py.File(filename, 'w') as f:
+        f.create_dataset("mses", data = mses)
+        f.create_dataset("thetas", data = thetas)
+        f.create_dataset("count", data=c)
+
+def main(theta_file):
+    check_dir_exist()
+    thetas_e4_sort = np.array(pd.read_csv(theta_file).drop(['Unnamed: 0'], axis=1))
+    e1 = 3207.2168047024957
+    e1 = 20000
+    M2c_fxns = Model(M2c_kb, simulate_t100a_experiment_M2a_kb, simulate_nopos_experiment_M2a_kb, M2c_kb_on_off)
+    ABC_SMC_mses1, ABC_SMC_thetas1, ABC_SMC_c1 = run_schedule_1(e1, 10, M2c_fxns)
+    data_to_hdf5(ABC_SMC_mses1, ABC_SMC_thetas1, ABC_SMC_c1)
+
+
+if __name__ == '__main__':
+    exp_data, exp_time = get_data()
+
+    MAP3K_t = molarity_conversion(701)
+    MAP2K_t = molarity_conversion(2282)
+    MAPK_t = molarity_conversion(5984)
+    PTP_t = molarity_conversion(118+400) # including ptc1
+
+    MAP3K = 0.05*MAP3K_t # estimated (so not 0)
+    MAP2K = 0.05975380333*MAP2K_t # from the biological data
+    MAPK = 0.00540042381*MAPK_t  # from the biological data
+    gly = 0.00001 # placeholder (so not 0)
+    PTP = molarity_conversion(118+400) # start with all on
+
+    # doses
+    hog1_doses = [0, 50000, 150000, 250000, 350000, 450000, 550000]
+    # pbs2_doses = [150000, 550000]
+    ptp_doses = [0, 150000, 550000]
+    initials = [MAP3K, MAP2K, MAPK, gly]
+    params_constants = [MAP3K_t, MAP2K_t, MAPK_t, 550000*2] #uM, except for gly (1) which is a placeholder for multiplying arrays together
+    save_filename = 't200117_kb_abc_smc.txt'
+    main("C:/Users/sksuzuki/Documents/GitHub/HOG_encoding_feedbacks/ode_modeling/final_models/M2b_kb_thetas_e4.csv")
+    # main("/nas/longleaf/home/sksuzuki/HOG_model/thetas/M2b_kb_thetas_e4.csv")

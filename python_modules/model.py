@@ -89,7 +89,7 @@ def get_ramp_signal(t_step, steps):
     else:
         sig = sum(steps[0:i+1])
     # print(sig)
-    return sig,
+    return sig
 
 def get_manual_signal(t_step):
     sig = 0
@@ -491,9 +491,28 @@ def M2b_kb(initials,t,total_protein,sig,params, run_type=None):
         elif run_type[0] == 'man':
             sig = get_manual_signal(t)
 
+    # MAP3K, MAP2K, MAPK, gly = initials
+    # MAP3K_t, MAP2K_t, MAPK_t, _ = total_protein
+    # beta_3, alpha, kb, k1, k3, k5, s7, k2, k4, k6, d8, K_1, K_3, K_5, K_2, K_4, K_6 = params #17
+    #
+    # MAP3K_I = MAP3K_t-MAP3K
+    # MAP2K_I = MAP2K_t-MAP2K
+    # MAPK_I = MAPK_t-MAPK
+    # # PTP_I = PTP_t-PTP
+    # # sig = 0
+    #
+    # dMAP3K = (((sig*k1 + kb)/(1+gly/beta_3))*MAP3K_I)/(K_1+MAP3K_I) - (k2*MAP3K/(K_2+MAP3K))
+    # dMAP2K = (((k3*MAP3K + MAPK*alpha)*MAP2K_I)/(K_3+MAP2K_I)) - (k4*MAP2K/(K_4+MAP2K))
+    # dMAPK = (((k5)*MAP2K)*MAPK_I)/(K_5+MAPK_I) - (k6*MAPK)/(K_6+MAPK)
+    # dgly = s7*MAPK - d8*gly
+    #
+    # return dMAP3K, dMAP2K, dMAPK, dgly
+    # print(sig)
+
     MAP3K, MAP2K, MAPK, gly = initials
     MAP3K_t, MAP2K_t, MAPK_t, _ = total_protein
-    beta_3, alpha, kb, k1, k3, k5, s7, k2, k4, k6, d8, K_1, K_3, K_5, K_2, K_4, K_6 = params #17
+    beta_3, alpha, kb, k1, k3, k5, s7, k2, k4, k6, d8, K_1, K_3, K_5, K_2, K_4, K_6 = params #16
+    # sig = 150000
 
     MAP3K_I = MAP3K_t-MAP3K
     MAP2K_I = MAP2K_t-MAP2K
@@ -506,6 +525,7 @@ def M2b_kb(initials,t,total_protein,sig,params, run_type=None):
     dgly = s7*MAPK - d8*gly
 
     return dMAP3K, dMAP2K, dMAPK, dgly
+
 
 def M2b_kb_nopos(initials,t,total_protein,sig,params,run_type=None):
     # print(initials)
@@ -567,18 +587,34 @@ def M2c_kb(initials,t,total_protein,sig,params,run_type=None):
         elif run_type[0] == 'man':
             sig = get_manual_signal(t)
 
+    # MAP3K, MAP2K, MAPK, gly = initials
+    # MAP3K_t, MAP2K_t, MAPK_t, _ = total_protein
+    # beta_3, alpha, kb, k1, k3, k5, s7, k2, k4, k6, d8, K_1, K_3, K_5, K_2, K_4, K_6 = params #17
+    #
+    # MAP3K_I = MAP3K_t-MAP3K
+    # MAP2K_I = MAP2K_t-MAP2K
+    # MAPK_I = MAPK_t-MAPK
+    #
+    # dMAP3K = (((sig*k1 + kb)/(1+gly/beta_3))*MAP3K_I)/(K_1+MAP3K_I) - (k2*MAP3K/(K_2+MAP3K))
+    # dMAP2K = (((k3)*MAP3K*MAP2K_I)/(K_3+MAP2K_I)) - (k4*MAP2K/(K_4+MAP2K))
+    # dMAPK = (((k5*MAP2K + MAPK*alpha))*MAPK_I)/(K_5+MAPK_I) - (k6*MAPK)/(K_6+MAPK)  #bug
+    # dgly = s7*MAPK - d8*gly
+    # return dMAP3K, dMAP2K, dMAPK, dgly
     MAP3K, MAP2K, MAPK, gly = initials
     MAP3K_t, MAP2K_t, MAPK_t, _ = total_protein
-    beta_3, alpha, kb, k1, k3, k5, s7, k2, k4, k6, d8, K_1, K_3, K_5, K_2, K_4, K_6 = params #17
+    beta_3, alpha, kb, k1, k3, k5, s7, k2, k4, k6, d8, K_1, K_3, K_5, K_2, K_4, K_6 = params #16
 
     MAP3K_I = MAP3K_t-MAP3K
     MAP2K_I = MAP2K_t-MAP2K
     MAPK_I = MAPK_t-MAPK
+    # PTP_I = PTP_t-PTP
+    # print(sig)
 
     dMAP3K = (((sig*k1 + kb)/(1+gly/beta_3))*MAP3K_I)/(K_1+MAP3K_I) - (k2*MAP3K/(K_2+MAP3K))
     dMAP2K = (((k3)*MAP3K*MAP2K_I)/(K_3+MAP2K_I)) - (k4*MAP2K/(K_4+MAP2K))
-    dMAPK = (((k5*MAP2K + MAPK*alpha))*MAPK_I)/(K_5+MAPK_I) - (k6*MAPK)/(K_6+MAPK)  #bug
+    dMAPK = (((k5 + MAPK*alpha)*MAP2K)*MAPK_I)/(K_5+MAPK_I) - (k6*MAPK)/(K_6+MAPK)
     dgly = s7*MAPK - d8*gly
+
     return dMAP3K, dMAP2K, dMAPK, dgly
 
 def M2c_kb_nopos(initials,t,total_protein,sig,params,run_type=None):

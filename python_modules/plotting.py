@@ -57,7 +57,7 @@ def run_ss_ptps(m, inits, total_protein, learned_params):
     return ss
 
 def plt_param_behaviors(model_fxns, top_params, plt_top, params_constants, initials,  doses, time, param,
-                        mapk_wt_data=None, mapk_t100a_data=None, mapk_time=None, ptpD=False, ss=False, plt_bad=0,
+                        mapk_wt_data=None, mapk_t100a_data=None, mapk_time=None, ptpD=False, ss=True, plt_bad=0,
                         save_fig=''):
     plt.clf()
     font = {'family' : 'Arial',
@@ -76,8 +76,8 @@ def plt_param_behaviors(model_fxns, top_params, plt_top, params_constants, initi
     plt.rc('ytick', labelsize=20)
     palette = palettes.get(param)
     # ax1.set_ylabel(x_labels.get(param), fontsize=24)
-    ax1.set_yticks(np.arange(0, 101, step=25))
-    ax1.set_xticks(np.arange(0, 61, step=15))
+    # ax1.set_yticks(np.arange(0, 101, step=25))
+    # ax1.set_xticks(np.arange(0, 61, step=15))
 
     if mapk_wt_data:
         # tdoses = [0, 150000, 350000, 550000]
@@ -92,8 +92,8 @@ def plt_param_behaviors(model_fxns, top_params, plt_top, params_constants, initi
     # title_text = 'Inhibited MAPK Simulations'#'Best fits to kinase dead mutant dose data'
     # ax2.set_title(title_text, fontsize=20)
     # ax2.set_xlabel('Time (min)', fontsize=16)
-    ax2.set_yticks(np.arange(0, 101, step=25))
-    ax2.set_xticks(np.arange(0, 61, step=15))
+    # ax2.set_yticks(np.arange(0, 101, step=25))
+    # ax2.set_xticks(np.arange(0, 61, step=15))
     # ax2.set_ylabel(x_labels.get(param), fontsize=16)
 
     if mapk_t100a_data:
@@ -110,7 +110,7 @@ def plt_param_behaviors(model_fxns, top_params, plt_top, params_constants, initi
     if param == 3:
 #         ax1.set_ylim(0,150)
         dt = 0.1
-        steps = 2001
+        steps = 601
         time = np.linspace(0,dt*steps,steps)
         # ax1.set_yscale("log", nonposy='clip')
         # ax2.set_yscale("log", nonposy='clip')
@@ -188,22 +188,31 @@ def plt_param_behaviors(model_fxns, top_params, plt_top, params_constants, initi
     else:
         # ax1.plot(time, np.zeros(len(time)), color=palette.get(0))
         # ax2.plot(time, np.zeros(len(time)), '--', color=palette.get(0))
-
+        print(doses)
         for sig in doses:
             for params in top_params[:plt_top]:
                     if ss:
                         ss_data = run_ss(model_fxns.m, initials, params_constants, params)
+                        print(ss_data)
                         data = simulate_wt_experiment(model_fxns.m, ss_data, params_constants, sig, params, time)
+                        print('hi')
                     else:
                         data = simulate_wt_experiment(model_fxns.m, initials, params_constants, sig, params, time)
-                    active = data[:,param]/params_constants[param]*100
+                    if param == 3:
+                        active = [x/ss_data[3] for x in data[:,param]]
+                    else:
+                        active = data[:,param]/params_constants[param]*100
                     ax1.plot(time, active, color=palette.get(sig))
+
                     if ss:
                         ss_data = run_ss(model_fxns.m, initials, params_constants, params)
                         data = model_fxns.t100a(model_fxns.m, ss_data, params_constants, sig, params, time)
                     else:
                         data = model_fxns.t100a(model_fxns.m, initials, params_constants, sig, params, time)
-                    active = data[:,param]/params_constants[param]*100
+                    if param == 3:
+                        active = [x/ss_data[3] for x in data[:,param]]
+                    else:
+                        active = data[:,param]/params_constants[param]*100
                     ax2.plot(time, active, '--', color=palette.get(sig))
 
 #     ax1.legend(bbox_to_anchor=[1, 0.5], loc='center left')
@@ -310,6 +319,7 @@ def plt_mses_gen(gen, mses, idx_top, save_fig=''):
     ax3.set_ylabel('MSE', fontsize=20)
     ax3.set_xlim([0,gen])
     # ax3.set_ylim(1000,5000)
+    # ax3.set_ylim([3.5,6])
 
     if save_fig:
         plt.savefig("C:/Users/sksuzuki/Documents/Research/figures/simulations/"+save_fig+".png",
@@ -350,8 +360,8 @@ def plt_param_ranges(labelnames, m_name, dims, param_data, single_theta=pd.Serie
     # plt.bar(range(0,len(labelnames)),height=dims[0],bottom=dims[1],align='center',tick_label=labelnames, color='#dcdcdc',alpha = 0.8)
     with sns.axes_style("whitegrid"):
 
-        # ax1 = sns.swarmplot(x='param',y='vals', data = param_data, size=4) #size 3
-        ax1 = sns.violinplot(x='param',y='vals', data = param_data, size=5,  cut=0, bw=.2, width=2) #size 3 , inner='stick'
+        ax1 = sns.swarmplot(x='param',y='vals', data = param_data, size=4) #size 3
+        # ax1 = sns.violinplot(x='param',y='vals', data = param_data, size=5,  cut=0, bw=.5, width=2) #size 3 , inner='stick'
 
         ax1.set_xticklabels(labelnames,rotation=90)
         plt.xlabel('Parameters', fontsize=20, fontweight='medium')
@@ -595,8 +605,30 @@ def plt_deriv(mses, zoom, elim, deriv=1, window=False):
     plt.legend()
     return thresh, idx_thresh
 
-def plt_idx_vs_mse(mses, zoom, idx_thresh=False):
-    mses = np.sort(mses)[:zoom]
+def plt_idx_vs_mse(mses, zoom, sorting=True,idx_thresh=False,data_thresh=False):
+    if sorting:
+        mses = np.sort(mses)[:zoom]
+    else:
+        mses = np.array(mses)[:zoom]
+    fig, ax1 = plt.subplots(1, 1, figsize=(9,4))
+    plt.plot(range(len(mses)),mses, 'o', markersize=3, color='grey')
+    plt.xlabel('Index')
+    # plt.ylabel('$\sum MSE$')
+    if idx_thresh:
+        plt.axvline(x=idx_thresh, color='black', linewidth=3, label='thresh')
+    if data_thresh:
+        # plt.axhline(y=data_thresh, color='black', linewidth=3, label='thresh')
+        _idx = [i for i, val in enumerate(mses) if val<data_thresh]
+        # print(_idx)
+        # plt.
+        plt.plot(_idx, mses[_idx], 'o', markersize=3, color='pink')
+        return _idx
+
+    plt.legend()
+    # ax1.semilogy(range(len(mses)),mses)
+
+def plt_pdf(mses, zoom, idx_thresh=False):
+    # mses = np.sort(mses)[:zoom]
     fig, ax1 = plt.subplots(1, 1, figsize=(9,4))
     plt.plot(range(len(mses)),mses, 'o', markersize=3, color='grey')
     plt.xlabel('Index')
@@ -604,9 +636,6 @@ def plt_idx_vs_mse(mses, zoom, idx_thresh=False):
     if idx_thresh:
         plt.axvline(x=idx_thresh, color='black', linewidth=3, label='1% max slope of the derivative')
     plt.legend()
-    # ax1.semilogy(range(len(mses)),mses)
-
-
 # def plt_thresh_behavior(model_fxns, top_params, plt_num, params_constants, initials,  doses, time, param, ax1, ax2):
 #     bad_run = top_params[plt_num]
 #     for sig in doses:
@@ -637,6 +666,37 @@ def plt_idx_vs_mse(mses, zoom, idx_thresh=False):
 #         if idx % int(len(top_params)*.1) == 0:
 #             print(str(int(idx/len(top_params)*100)) + "% complete.")
 #     return sims
+
+
+def fit_data_to_list2(model_fxns, top_params, params_constants, initials, time, param, dose, t100a=False, ptpD=False,
+                        ss = False):
+    sims = []
+    for idx, params in enumerate(top_params):
+        ss_data = run_ss(model_fxns.m, initials, params_constants, params)
+        data = simulate_wt_experiment(model_fxns.m, ss_data, params_constants, dose, params, time)
+        active = data[:,param]/params_constants[param]*100
+
+        sims.append(active)
+
+        up = params.copy()
+        up[0] *= 3
+        ss_data = run_ss(model_fxns.m, initials, params_constants, up)
+        data = simulate_wt_experiment(model_fxns.m, ss_data, params_constants, dose, up, time)
+        active = data[:,param]/params_constants[param]*100
+
+        sims.append(active)
+
+        down = params.copy()
+        down[0] /= 2
+        ss_data = run_ss(model_fxns.m, initials, params_constants, down)
+        data = simulate_wt_experiment(model_fxns.m, ss_data, params_constants, dose, down, time)
+        active = data[:,param]/params_constants[param]*100
+
+        sims.append(active)
+
+    print('Dose: ' + str(dose) + ' complete.')
+    return sims
+
 def fit_data_to_list(model_fxns, top_params, params_constants, initials, time, param, dose, t100a=False, ptpD=False,
                         ss = False):
         sims = []
@@ -695,7 +755,6 @@ def plt_param_cis(model_fxns, top_params, params_constants, initials,  doses, ti
     plt.rc('xtick', labelsize=16)
 
     palette = palettes.get(param)
-
 
     if param == 3:
         dt = 0.1
@@ -757,19 +816,22 @@ def plt_param_cis(model_fxns, top_params, params_constants, initials,  doses, ti
         # print(type(test))
         # print(type(test[0]))
         # print(np.all())
-        test = []
-        for s in sims:
-            if sum(s) > 60001:
-                continue
-            else:
-                test.append(s)
+        # test = []
+        # for s in sims:
+        #     if sum(s) > 60001:
+        #         continue
+        #     else:
+        #         test.append(s)
 
 
         # sims = sims[:3]+sims[4:56]+sims[57:79]+sims[80:97]+sims[98:]
-        # print(len(sims))
-        ax1 = sns.tsplot(sims, time,  ci = ci, color=palette.get(sig), dashes=dashes)
+        # print(sims)
+        # ax1 = sns.tsplot(sims[0], time,  ci = ci, color='#228833', linewidth=3)#, dashes=dashes)
+        # ax1 = sns.tsplot(sims[1], time,  ci = ci, color='#4477aa', linewidth=3)
+        # ax1 = sns.tsplot(sims[2], time,  ci = ci, color='#aa3377', linewidth=3)
 
         # ax1 = sns.tsplot(sims, time,  ci = ci, color=palette.get(sig), dashes=dashes, err_style='unit_traces')
+        ax1 = sns.tsplot(sims, time,  ci = ci, color=palette.get(sig), dashes=dashes)#, err_style='unit_traces')
         # ax1 = sns.tsplot(test, time,  ci = ci, color=pred, dashes=dashes)
 
 
@@ -865,6 +927,9 @@ def plt_param_cis(model_fxns, top_params, params_constants, initials,  doses, ti
     ax1.spines['right'].set_visible(False)
     ax1.spines['top'].set_visible(False)
     # ax1.legend(bbox_to_anchor=[1, 0.5], loc='best')
+
+    plt.xlabel('Time (min)')
+    # plt.ylabel('% ppHog1')
 
     if save_fig:
         plt.savefig(save_fig+save_as, dpi=300,bbox_inches='tight')
@@ -1029,8 +1094,9 @@ def simdata_to_list(model_fxns, top_params, params_constants, initials, time, pa
         except RuntimeWarning:
             print("Runtimewarning at idx: "+str(idx))
 
-        if idx % int(len(top_params)*.1) == 0:
-            print(str(int(idx/len(top_params)*100)) + "% complete.")
+        if len(top_params) > 1:
+            if idx % int(len(top_params)*.1) == 0:
+                print(str(int(idx/len(top_params)*100)) + "% complete.")
 
     return sims
 
@@ -1133,7 +1199,7 @@ def plt_ramp_cis(sims, time, num, ramp=None, hog1_ramp_data=None, mapk_ramp_time
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         # for i in []:
-        ax1 = sns.tsplot(sims[:,:num], time[:num],  ci = ci, color=colorl) #dashes
+        ax1 = sns.tsplot(sims, time)#, err_style='unit_traces') #dashes
         # print(len(time[0]))
     # 1/0
 
@@ -1294,25 +1360,25 @@ def M4_noptps_list(model_fxns, top_params, params_constants, initials, time, par
             print(str(int(idx/len(top_params)*100)) + "% complete.")
     return sims
 
-def simdata_to_list(model_fxns, top_params, params_constants, initials, time, param,
-                        ss = False):
-    sims = []
-    for idx, params in enumerate(top_params):
-        try:
-            if ss:
-                ss_data = fsolve(model_fxns.m, initials, args=(0,params_constants, 0, params))
-                data = simulate_wt_experiment(model_fxns.m, ss_data, params_constants, 350000, params, time, run_type=['ramp'])
-                active = data[:,param]/params_constants[param]*100
-                sims.append(active)
-            else:
-                data = simulate_wt_experiment(model_fxns.m, initials, params_constants, 0, params, time, run_type=['man'])
-        except RuntimeWarning:
-            print("Runtimewarning at idx: "+str(idx))
-
-        if idx % int(len(top_params)*.1) == 0:
-            print(str(int(idx/len(top_params)*100)) + "% complete.")
-
-    return sims
+# def simdata_to_list(model_fxns, top_params, params_constants, initials, time, param,
+#                         ss = False):
+#     sims = []
+#     for idx, params in enumerate(top_params):
+#         try:
+#             if ss:
+#                 ss_data = fsolve(model_fxns.m, initials, args=(0,params_constants, 0, params))
+#                 data = simulate_wt_experiment(model_fxns.m, ss_data, params_constants, 350000, params, time, run_type=['ramp'])
+#                 active = data[:,param]/params_constants[param]*100
+#                 sims.append(active)
+#             else:
+#                 data = simulate_wt_experiment(model_fxns.m, initials, params_constants, 0, params, time, run_type=['man'])
+#         except RuntimeWarning:
+#             print("Runtimewarning at idx: "+str(idx))
+#
+#         if idx % int(len(top_params)*.1) == 0:
+#             print(str(int(idx/len(top_params)*100)) + "% complete.")
+#
+#     return sims
 
 def fit_m2c_data_to_list(model_fxns, top_params, params_constants, initials, time, param, dose, t100a=False, ptpD=False,
                         ss = False):

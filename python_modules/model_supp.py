@@ -5,12 +5,12 @@ import pickle
 import os
 import pandas as pd
 import model
+import h5py
 
 def molarity_conversion(molecules):
     Na = 6.02214076*10**23
-    cell_volume = 44                                                                 # volume of a yeast cell
-    return molecules/(Na*cell_volume*10**-15)*1000000                                # returns uM
-
+    cell_volume = 44                                 # volume of a yeast cell
+    return molecules/(Na*cell_volume*10**-15)*1000000 # returns uM
 
 def get_sim_data(folder, num_sims=None):
     try:
@@ -98,34 +98,34 @@ def load_csv_data(folder):
     for csv in pathlib.Path(folder).glob('*.csv'):
         f_data = pd.read_csv(csv)
         time = f_data['Time'].tolist()
-        dose = f_data['Dose'][0]
-        doses.append(dose)
+        # dose = f_data['Dose'][0]
+        # doses.append(dose)
         f_data=f_data.set_index('Time')
         f_data = f_data.iloc[:,:3].mean(axis=1)
         f_data = f_data.tolist()
         data.append(f_data)
     data = np.array(data)
-    re_idx = sorted(range(len(doses)), key=lambda k: doses[k])
-    data = data[re_idx]
+    # re_idx = sorted(range(len(doses)), key=lambda k: doses[k])
+    # data = data[re_idx]
     return time, list(data)
 
 def get_data(): #AJDUST
-    wt_folder = 'C:/Users/sksuzuki/Desktop/killdevil/data/MAPK_activation/WT'
-    t100a_folder = 'C:/Users/sksuzuki/Desktop/killdevil/data/MAPK_activation/T100A'
-    pbs2_folder = 'C:/Users/sksuzuki/Desktop/killdevil/data/MAPK_activation/Pbs2'
-    pbs2_t100a_folder = 'C:/Users/sksuzuki/Desktop/killdevil/data/MAPK_activation/Pbs2_T100A'
+    base = 'C:/Users/sksuzuki/Desktop/killdevil/data/MAPK_activation/'
+    wt_folder = base + '/WT'
+    t100a_folder = base + '/T100A'
+    pbs2_folder = base + '/Pbs2'
+    pbs2_t100a_folder = base + '/Pbs2_T100A'
     # sho1DD_folder = 'C:/Users/sksuzuki/Desktop/killdevil/data/MAPK activation/sho1DD'
     # ssk1D_folder = 'C:/Users/sksuzuki/Desktop/killdevil/data/MAPK activation/ssk1D'
-    hog1_ramp_folder =  'C:/Users/sksuzuki/Desktop/killdevil/data/MAPK activation/ramp_1'
-    hog1_ramp_inhib_folder =  'C:/Users/sksuzuki/Desktop/killdevil/data/MAPK activation/ramp_1_inhib'
-    pbs2_ramp_folder ='C:/Users/sksuzuki/Desktop/killdevil/data/MAPK activation/ramp_1_pbs2'
-    # pbs2_ramp_folder =  'C:/Users/sksuzuki/Desktop/killdevil/data_pbs2/MAPK activation/pulse_pbs2'
-    ptpD_folder = 'C:/Users/sksuzuki/Desktop/killdevil/data/MAPK_activation/ptpD'
+    hog1_ramp_folder =  base + '/ramp_1'
+    hog1_ramp_inhib_folder =  base + '/ramp_1_inhib'
+    pbs2_ramp_folder = base + '/ramp_1_pbs2'
+    ptpD_folder = base + '/ptpD'
 
     mapk_time, mapk_wt_data = load_csv_data(wt_folder)
     mapk_time, mapk_t100a_data = load_csv_data(t100a_folder)
     # mapk_data_t100a_long = [mapk_t100a_data[0]]
-    mapk_time_t100a_long = [0, 2, 5, 10, 15, 20, 25, 30, 60, 90, 120, 150, 180, 240, 300]
+    mapk_time_t100a_long = [0, 30, 60, 90, 120, 150, 180, 240, 300]
 
     mapk_time, map2k_wt_data = load_csv_data(pbs2_folder)
     mapk_time, map2k_t100a_data = load_csv_data(pbs2_t100a_folder)
@@ -135,6 +135,7 @@ def get_data(): #AJDUST
     mapk_time, mapk_ptpD_data = load_csv_data(ptpD_folder)
     # mapk_time, sho1_wt_data = load_csv_data(ssk1D_folder)
     # mapk_time, sln1_wt_data = load_csv_data(sho1DD_folder)
+    # data = [mapk_wt_data, mapk_t100a_data, map2k_wt_data, map2k_t100a_data] #,
     data = [mapk_wt_data, mapk_t100a_data, map2k_wt_data, map2k_t100a_data, hog1_ramp_data, hog1_ramp_inhib_data, pbs2_ramp_data, mapk_ptpD_data]
     time = [mapk_time, mapk_time_t100a_long, mapk_ramp_time]
     return data, time
@@ -174,7 +175,7 @@ def calc_sim_score(model_fxns, params, exp_data, exp_time, total_protein, inits,
 
     # exp_data, exp_time = get_data()
 
-    mapk_wt_data, mapk_t100a_data, map2k_wt_data, map2k_t100a_data, hog1_ramp_data, mapk_ptpD_data = exp_data
+    mapk_wt_data, mapk_t100a_data, map2k_wt_data, map2k_t100a_data, hog1_ramp_data, hog1_ramp_inhib_data, pbs2_ramp_data, mapk_ptpD_data = exp_data
     mapk_time, mapk_time_t100a_long, mapk_ramp_time = exp_time
 
     mapk_data_t100a_0 = [mapk_t100a_data[0]]
@@ -263,9 +264,20 @@ def calc_sim_score(model_fxns, params, exp_data, exp_time, total_protein, inits,
     for data in hog1_ramp_data:
         odes = model.simulate_wt_experiment(model_fxns.m, wt_ss_inits, total_protein, 0, params, time, run_type=['ramp'])
         mapk = odes[:,2]/total_protein[2]*100
+        # mses[18] = ((data - mapk[closest_idxs_ramp_time])**2).mean()
         mses[18] = ((data - mapk[closest_idxs_ramp_time])**2).mean()
+
 #     (mse_total/13)
     #     (mse_total/27)
+    # print(mses)
+    # print("Hog1 fit to WT: " + str(sum(mses[:7])))
+    # print("Hog1 fit to T100A: " + str(sum(mses[7:14])))
+    # print("Pbs2 fit to WT: " + str(sum(mses[14:16])))
+    # print("Pbs2 fit to T100A: " + str(sum(mses[16:18])))
+    # print("Hog1 fit to Ramp: " + str(mses[18]))
+    # if ptpD:
+    #     print("Hog1 fit to PtpD: " + str(sum(mses[19:])))
+
     return mses
 
 def get_mse_stats(model_fxns, param_sets, total_protein, inits, ptpD=True):
@@ -288,5 +300,8 @@ def get_saved_thetas(f):
 
 def sort_mses_thetas(mses, thetas):
     re_idx = sorted(range(len(mses)), key=lambda k: mses[k])
-    thetas = thetas[re_idx]
+    if type(thetas) == h5py._hl.dataset.Dataset:
+        thetas = [thetas[x] for x in re_idx]
+    else:
+        thetas = thetas[re_idx]
     return np.sort(mses), thetas

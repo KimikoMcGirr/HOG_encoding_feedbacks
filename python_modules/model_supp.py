@@ -112,7 +112,7 @@ def load_csv_data(folder):
 
 def get_data(local=False): #AJDUST
     if local:
-        base = 'C:/Users/sksuzuki/Desktop/killdevil/data/paper'
+        base = '../../exp_data/phospho_data'
     else:
         base = '/nas/longleaf/home/sksuzuki/data/paper'
     wt_folder = base + '/WT'

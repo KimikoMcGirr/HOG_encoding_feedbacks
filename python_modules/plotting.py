@@ -188,14 +188,14 @@ def plt_param_behaviors(model_fxns, top_params, plt_top, params_constants, initi
     else:
         # ax1.plot(time, np.zeros(len(time)), color=palette.get(0))
         # ax2.plot(time, np.zeros(len(time)), '--', color=palette.get(0))
-        print(doses)
+        # print(doses)
         for sig in doses:
             for params in top_params[:plt_top]:
                     if ss:
                         ss_data = run_ss(model_fxns.m, initials, params_constants, params)
-                        print(ss_data)
+                        # print(ss_data)
                         data = simulate_wt_experiment(model_fxns.m, ss_data, params_constants, sig, params, time)
-                        print('hi')
+                        # print('hi')
                     else:
                         data = simulate_wt_experiment(model_fxns.m, initials, params_constants, sig, params, time)
                     if param == 3:
@@ -360,8 +360,8 @@ def plt_param_ranges(labelnames, m_name, dims, param_data, single_theta=pd.Serie
     # plt.bar(range(0,len(labelnames)),height=dims[0],bottom=dims[1],align='center',tick_label=labelnames, color='#dcdcdc',alpha = 0.8)
     with sns.axes_style("whitegrid"):
 
-        ax1 = sns.swarmplot(x='param',y='vals', data = param_data, size=4) #size 3
-        # ax1 = sns.violinplot(x='param',y='vals', data = param_data, size=5,  cut=0, bw=.5, width=2) #size 3 , inner='stick'
+        # ax1 = sns.swarmplot(x='param',y='vals', data = param_data, size=4) #size 3
+        ax1 = sns.violinplot(x='param',y='vals', data = param_data, size=5,   bw=.5, width=2) #size 3 , inner='stick' cut=0,
 
         ax1.set_xticklabels(labelnames,rotation=90)
         plt.xlabel('Parameters', fontsize=20, fontweight='medium')
@@ -613,6 +613,7 @@ def plt_idx_vs_mse(mses, zoom, sorting=True,idx_thresh=False,data_thresh=False):
     fig, ax1 = plt.subplots(1, 1, figsize=(9,4))
     plt.plot(range(len(mses)),mses, 'o', markersize=3, color='grey')
     plt.xlabel('Index')
+    plt.ylim(10000,100000)
     # plt.ylabel('$\sum MSE$')
     if idx_thresh:
         plt.axvline(x=idx_thresh, color='black', linewidth=3, label='thresh')

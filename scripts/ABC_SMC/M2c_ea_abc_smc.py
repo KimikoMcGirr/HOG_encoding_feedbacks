@@ -9,9 +9,38 @@ import h5py
 import os
 
 import sys
-sys.path.insert(1, '../python_modules/')
+sys.path.insert(1, '../../python_modules/')
 import model
 import model_supp
+
+def get_data(local=False):
+    if local:
+        base_f = '../../exp_data/phospho_data'
+    else:
+        base_f = '/nas/longleaf/home/sksuzuki/data/paper'
+
+    wt_folder = base_f+'/WT'
+    t100a_folder = base_f+'/T100A'
+    pbs2_folder = base_f+'/Pbs2'
+    pbs2_t100a_folder = base_f+'/Pbs2_T100A'
+    ramp_folder = base_f+'/ramp_1'
+    ptpD_folder = base_f+'/ptpD'
+
+
+    mapk_time, mapk_wt_data = load_csv_data(wt_folder)
+    mapk_time, mapk_t100a_data = load_csv_data(t100a_folder)
+    # mapk_data_t100a_long = [mapk_t100a_data[0]]
+    mapk_time_t100a_long = [0, 30, 60, 90, 120, 150, 180, 240, 300]
+
+    mapk_time, map2k_wt_data = load_csv_data(pbs2_folder)
+    mapk_time, map2k_t100a_data = load_csv_data(pbs2_t100a_folder)
+    mapk_ramp_time, hog1_ramp_data = load_csv_data(ramp_folder)
+    mapk_time, mapk_ptpD_data = load_csv_data(ptpD_folder)
+    # mapk_time, sho1_wt_data = load_csv_data(ssk1D_folder)
+    # mapk_time, sln1_wt_data = load_csv_data(sho1DD_folder)
+    data = [mapk_wt_data, mapk_t100a_data, map2k_wt_data, map2k_t100a_data, hog1_ramp_data, mapk_ptpD_data]
+    time = [mapk_time, mapk_time_t100a_long, mapk_ramp_time]
+    return data, time
 
 def load_csv_data(folder):
     data = []
@@ -50,7 +79,6 @@ def draw_thetas(sorted_params):
 
 def step_theta(theta, step):
     log_theta = np.log10(theta)
-    step += 1 #0 idx -> 1
     theta_prime = np.concatenate([10**(np.random.uniform(x-(.1/step),x+(.1/step),1)) for x in log_theta], axis=0)
     return theta_prime
 
@@ -179,7 +207,7 @@ def main(f, number_eas, particle_num):
 
 
 if __name__ == '__main__':
-    exp_data, exp_time = model_supp.get_data(local=False)
+    exp_data, exp_time = get_data(local=True)
 
     MAP3K_t = molarity_conversion(123+1207+1611) #ssk2+ssk22+ste11
     MAP2K_t = molarity_conversion(4076)
@@ -203,5 +231,5 @@ if __name__ == '__main__':
     save_filename = '200902_M2c_abc_smc.txt'
     number_eas = 500
     particle_num = 1000
-    main('../EA/200902_M2c/', number_eas, particle_num)
-    # main('C:/Users/sksuzuki/Desktop/killdevil/runs_for_paper/paper/revisions/200902_M2c/', number_eas, particle_num)
+    # main('/pine/scr/s/k/sksuzuki/HOG_model/Suzuki_2020/EA/200902_M2c/', number_eas, particle_num)
+    main('C:/Users/sksuzuki/Desktop/killdevil/runs_for_paper/paper/revisions/200902_M2c/', number_eas, particle_num)

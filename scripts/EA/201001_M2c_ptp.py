@@ -51,7 +51,7 @@ def scorefxn_helper(individual):
     # just a helper function that pulls all of scorefxn1 dependencies together
     # note the (), <--using single optimization in DEAP for now
     # scorefxn1 is taking care of the multiple optimizations for now
-    return model_supp.calc_sim_score(model_fxns, exp_data, exp_time, total_protein, inits, individual, ptpD=False, convert=(True, arr_conversion_matrix)),
+    return model_supp.calc_sim_score_M2c_ptp(model_fxns, exp_data, exp_time, total_protein, inits, individual, ptpD=True, convert=(True, arr_conversion_matrix)),
 
 
 
@@ -230,7 +230,7 @@ def run(): # DOGWOOD
 #
 if __name__ == '__main__':
     # define where to save runs
-    save_filename = '200929_M3.txt'
+    save_filename = '2001001_M2c_ptp.txt'
 
     # define experimental data
     exp_data, exp_time = model_supp.get_data(local=False)
@@ -240,7 +240,7 @@ if __name__ == '__main__':
     MAP2K_t = model_supp.molarity_conversion(4076)
     MAPK_t = model_supp.molarity_conversion(8225)
     PTP_t = model_supp.molarity_conversion(443+1324) # ptp2+ptp3
-    total_protein = [MAP3K_t, MAP2K_t, MAPK_t, 550000*2, PTP_t] #uM, except for gly (1) which is a placeholder for multiplying arrays together
+    total_protein = [MAP3K_t, MAP2K_t, MAPK_t, 550000*2] #uM, except for gly (1) which is a placeholder for multiplying arrays together
 
     #  define initial conditions
     MAP3K = 0.05*MAP3K_t # estimated (so not 0)
@@ -248,7 +248,7 @@ if __name__ == '__main__':
     MAPK = 0.00540042381*MAPK_t  # from the biological data
     gly = 0.00001 # placeholder (so not 0)
     PTP = model_supp.molarity_conversion(443+1324) # ptp2+ptp3
-    inits = [MAP3K, MAP2K, MAPK, gly, PTP]
+    inits = [MAP3K, MAP2K, MAPK, gly]
 
     # doses defined in model_supp.calc_sim_score()
     # hog1_doses = [0, 50000, 150000, 250000, 350000, 450000, 550000]
@@ -262,28 +262,26 @@ if __name__ == '__main__':
     number_of_individuals = 500
     mutation_rate = 0.1
     crossover_rate = 0.5
-    number_of_params = 22
+    number_of_params = 18
 
     # EA param ranges
-    minimums = [-4, -4,  0,
+    minimums = [-4, -4, -4,
         -4, -4, -4, -4,
-        -4, -4, -4, -4, -4,
-        -4, -4, -4, -4, -4,
+        -4, -4, -4, -4, -4, # must be larger than 1
         -4, -4, -4, -4,
-        -4]
+        -4, -4]
 
-    maximums = [ 4, 4, 8,
+    maximums = [ 4, 4, 4,
         4, 4, 4, 4,
         4, 4, 4, 4, 4,
-        4, 4, 4, 4, 4,
         4, 4, 4, 4,
-        4]
+        4, 4]
 
     #conversion matrix
     arr_conversion_matrix = model_supp.make_conversion_matrix(number_of_params, maximums, minimums)
 
 
     # define model functions
-    model_fxns = model.Model(model.M3, model.simulate_t100a_experiment_M3)
+    model_fxns = model.Model(model.M2c_ptp, model.run_ss_M2c_ptp, model.simulate_wt_experiment_M2c_ptp, model.simulate_t100a_experiment_M2c_ptp)
 
     run()

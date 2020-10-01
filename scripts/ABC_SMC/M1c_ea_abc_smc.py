@@ -9,13 +9,13 @@ import h5py
 import os
 
 import sys
-sys.path.insert(1, '../../python_modules/')
+sys.path.insert(1, '../python_modules/')
 import model
 import model_supp
 
 def get_data(local=False):
     if local:
-        base_f = 'C:/Users/sksuzuki/Desktop/killdevil/data/paper'
+        base_f = '../../exp_data/phospho_data'
     else:
         base_f = '/nas/longleaf/home/sksuzuki/data/paper'
 
@@ -38,7 +38,8 @@ def get_data(local=False):
     mapk_time, mapk_ptpD_data = load_csv_data(ptpD_folder)
     # mapk_time, sho1_wt_data = load_csv_data(ssk1D_folder)
     # mapk_time, sln1_wt_data = load_csv_data(sho1DD_folder)
-    data = [mapk_wt_data, mapk_t100a_data, map2k_wt_data, map2k_t100a_data, hog1_ramp_data, mapk_ptpD_data]
+    # mapk_wt_data, mapk_t100a_data, map2k_wt_data, map2k_t100a_data, hog1_ramp_data, hog1_ramp_inhib_data, pbs2_ramp_data, mapk_ptpD_data
+    data = [mapk_wt_data, mapk_t100a_data, map2k_wt_data, map2k_t100a_data, hog1_ramp_data, '_', '_', mapk_ptpD_data]
     time = [mapk_time, mapk_time_t100a_long, mapk_ramp_time]
     return data, time
 
@@ -207,7 +208,7 @@ def main(f, number_eas, particle_num):
 
 
 if __name__ == '__main__':
-    exp_data, exp_time = get_data(local=True)
+    exp_data, exp_time = get_data(local=False)
 
     MAP3K_t = molarity_conversion(123+1207+1611) #ssk2+ssk22+ste11
     MAP2K_t = molarity_conversion(4076)
@@ -224,12 +225,12 @@ if __name__ == '__main__':
     hog1_doses = [150000, 550000]
     # pbs2_doses = [150000, 550000]
     # ptp_doses = [0, 150000, 550000]
-    initials = [MAP3K, MAP2K, MAPK, gly]
-    params_constants = [MAP3K_t, MAP2K_t, MAPK_t, 550000*2] #uM, except for gly (1) which is a placeholder for multiplying arrays together
+    initials = [MAP3K, MAP2K, MAPK]
+    params_constants = [MAP3K_t, MAP2K_t, MAPK_t, 1] #uM, except for gly (1) which is a placeholder for multiplying arrays together
 
-    model_fxn = model.Model(model.M2c_kb, model.simulate_t100a_experiment_M2a_kb, model.simulate_nopos_experiment_M2a_kb)
-    save_filename = '200902_M2c_abc_smc.txt'
+    model_fxn = model.Model(model.M1c, model.run_ss, model.simulate_wt_experiment, t100a=model.simulate_t100a_experiment_M1a)
+    save_filename = '200914_M1c_abc_smc.txt'
     number_eas = 500
     particle_num = 1000
-    # main('/pine/scr/s/k/sksuzuki/HOG_model/Suzuki_2020/EA/200902_M2c/', number_eas, particle_num)
-    main('C:/Users/sksuzuki/Desktop/killdevil/runs_for_paper/paper/revisions/200902_M2c/', number_eas, particle_num)
+    main('../EA/200914_M1c/', number_eas, particle_num)
+    # main('../../sim_data/EA/200914_M1/', number_eas, particle_num)

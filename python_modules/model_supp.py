@@ -145,11 +145,13 @@ def get_data(local=False): #AJDUST
     return data, time
 
 def get_Justin_data(): #AJDUST
-    wt_folder = 'C:/Users/sksuzuki/Desktop/killdevil/data/MAPK activation/WT'
-    t100a_folder = 'C:/Users/sksuzuki/Desktop/killdevil/data/MAPK activation/T100A'
+    base = '../../exp_data/Justin_data/'
 
-    mapk_time, mapk_wt_data = load_Justin_csv_data(wt_folder)
-    mapk_time, mapk_t100a_data = load_Justin_csv_data(t100a_folder)
+    wt_folder = base + '/WT'
+    t100a_folder = base + '/T100A'
+
+    mapk_time, mapk_wt_data = load_csv_data(wt_folder)
+    mapk_time, mapk_t100a_data = load_csv_data(t100a_folder)
 
     data = [mapk_wt_data, mapk_t100a_data]
     time = [mapk_time]
@@ -292,28 +294,21 @@ def sim_all(model_fxns, exp_data, exp_time, total_protein, inits, params, params
     #     return mses
     # else:
     #     return sum(mses[:18])
-
-
-def calc_sim_score(model_fxns, exp_data, exp_time, total_protein, inits, params, ptpD=False, full=False, convert=''):
+def calc_sim_score_original(model_fxns, exp_data, exp_time, total_protein, inits, params, ptpD=False, full=False, convert=''):
     if convert[0]:
         params = convert_individual(params, convert[1], len(params))
     # mapk_wt_data, mapk_t100a_data, map2k_wt_data, map2k_t100a_data, hog1_ramp_data, mapk_ptpD_data = data
     # mapk_data_t100a_long = [mapk_t100a_data[0]]
     # mapk_time, mapk_time_t100a_long, mapk_ramp_time = exp_time
     # hog1_doses = [0, 50000, 150000, 250000, 350000, 450000, 550000]
-    wt_doses = [0, 50000, 150000,250000, 350000, 450000, 550000]
-    # t100a_doses = [0, 150000,550000] same as wt
+    wt_doses = [0, 50000, 150000, 250000, 350000, 450000, 550000]
 
-
-    # exp_data, exp_time = get_data()
-    #
     mapk_wt_data, mapk_t100a_data, map2k_wt_data, map2k_t100a_data, hog1_ramp_data, hog1_ramp_inhib_data, pbs2_ramp_data, mapk_ptpD_data = exp_data
     mapk_time, mapk_time_t100a_long, mapk_ramp_time = exp_time
 
-    # mapk_data_t100a_0 = [mapk_t100a_data[0]]
     mapk_time_t100a_0 = [0, 30, 60, 90, 120, 150, 180, 240, 300]
 
-    wt_ss_inits = model.run_ss(model_fxns.m, inits, total_protein, params)
+    ss_inits = model_fxns.ss(model_fxns.m, inits, total_protein, params)
 
     dt = 0.1
     steps = 601
@@ -333,11 +328,11 @@ def calc_sim_score(model_fxns, exp_data, exp_time, total_protein, inits, params,
         ptpD_total_protein = total_protein[:-1] + [0]
         ptpD_inits = inits[:-1] + [0]
 
-        ptpD_ss_inits = model.run_ss(model_fxns.m, ptpD_inits, ptpD_total_protein, params)
+        ptpD_ss_inits = model_fxns.ss(model_fxns.m, ptpD_inits, ptpD_total_protein, params)
         # ptpD_ss_inits = model.run_ss_ptps(model_fxns.m, inits, total_protein, params)
 
         for i, (dose, data) in enumerate(zip(ptp_doses, mapk_ptpD_data), 19):
-            odes = model.simulate_wt_experiment(model_fxns.m, ptpD_ss_inits, ptpD_total_protein, dose, params, time)
+            odes = model_fxns.wt(model_fxns.m, ptpD_ss_inits, ptpD_total_protein, dose, params, time)
             # odes = model.simulate_ptpD_experiment(model_fxns.m, ptpD_ss_inits, total_protein, dose, params, time)
             mapk = odes[:,2]/total_protein[2]*100
             mses[i] = np.sum((data - mapk[closest_idxs_mapk])**2)
@@ -349,7 +344,124 @@ def calc_sim_score(model_fxns, exp_data, exp_time, total_protein, inits, params,
         mses = np.zeros(19)
 
     for i, (dose, data) in enumerate(zip(wt_doses, mapk_wt_data), 0):
-        odes = model.simulate_wt_experiment(model_fxns.m, wt_ss_inits, total_protein, dose, params, time)#mapk_time)
+        odes = model_fxns.wt(model_fxns.m, ss_inits, total_protein, dose, params, time)#mapk_time)
+        mapk = odes[:,2]/total_protein[2]*100
+        mses[i] = np.sum((data - mapk[closest_idxs_mapk])**2)
+        mse_total += mses[i]
+
+        # Pbs2
+        # if dose == 150000:
+        #     map2k = odes[:,1]/total_protein[1]*100
+        #     mses[14] = np.sum((map2k_wt_data[0] - map2k[closest_idxs_mapk])**2)
+        #     mse_total += mses[14]
+        # elif dose == 550000:
+        #     map2k = odes[:,1]/total_protein[1]*100
+        #     mses[15] = np.sum((map2k_wt_data[1] - map2k[closest_idxs_mapk])**2)
+        #     mse_total += mses[15]
+#     (mse_total/63)
+
+    # ANALOG SENSITIVE
+    # Hog1
+    for i, (dose, data) in enumerate(zip(wt_doses, mapk_t100a_data), 7):
+        # if dose == 0:
+        #     odes = model_fxns.t100a(model_fxns.m, ss_inits, total_protein, dose, params, time_long)
+        #     mapk = odes[:,2]/total_protein[2]*100
+        #     mses[i] = np.sum((data - mapk[closest_idxs_t100a_long])**2)
+        #     mse_total += mses[i]
+        # else:
+        odes = model_fxns.t100a(model_fxns.m, ss_inits, total_protein, dose, params, time)
+        mapk = odes[:,2]/total_protein[2]*100
+        mses[i] = np.sum((data - mapk[closest_idxs_mapk])**2)
+        mse_total += mses[i]
+            # Pbs2
+            # if dose == 150000:
+            #     map2k = odes[:,1]/total_protein[1]*100
+            #     mses[16] = np.sum((map2k_t100a_data[0] - map2k[closest_idxs_mapk])**2)
+            #     mse_total += mses[16]
+            # elif dose == 550000:
+            #     map2k = odes[:,1]/total_protein[1]*100
+            #     mses[17] = np.sum((map2k_t100a_data[1] - map2k[closest_idxs_mapk])**2)
+            #     mse_total += mses[17]
+
+    # Hog1 ramp
+    for data in hog1_ramp_data:
+        odes = model_fxns.wt(model_fxns.m, ss_inits, total_protein, 0, params, time, run_type=['ramp'])
+        mapk = odes[:,2]/total_protein[2]*100
+        # mses[18] = ((data - mapk[closest_idxs_ramp_time])**2).mean()
+        mses[18] = sum((data - mapk[closest_idxs_ramp_time])**2)
+
+#     (mse_total/13)
+    #     (mse_total/27)
+    # print(mses)
+    # print("Hog1 fit to WT: " + str(sum(mses[:7])))
+    # print("Hog1 fit to T100A: " + str(sum(mses[7:14])))
+    # print("Pbs2 fit to WT: " + str(sum(mses[14:16])))
+    # print("Pbs2 fit to T100A: " + str(sum(mses[16:18])))
+    # print("Hog1 fit to Ramp: " + str(mses[18]))
+    # if ptpD:
+    #     print("Hog1 fit to PtpD: " + str(sum(mses[19:])))
+
+    # return mses
+    if ptpD:
+        return sum(mses[:18])+mses[19]
+    elif full:
+        # print(mses)
+        return mses
+    else:
+        return sum(mses[:18])
+
+
+def calc_sim_score(model_fxns, exp_data, exp_time, total_protein, inits, params, ptpD=False, full=False, convert=''):
+    if convert[0]:
+        params = convert_individual(params, convert[1], len(params))
+    # mapk_wt_data, mapk_t100a_data, map2k_wt_data, map2k_t100a_data, hog1_ramp_data, mapk_ptpD_data = data
+    # mapk_data_t100a_long = [mapk_t100a_data[0]]
+    # mapk_time, mapk_time_t100a_long, mapk_ramp_time = exp_time
+    # hog1_doses = [0, 50000, 150000, 250000, 350000, 450000, 550000]
+    wt_doses = [0, 50000, 150000, 250000, 350000, 450000, 550000]
+
+    mapk_wt_data, mapk_t100a_data, map2k_wt_data, map2k_t100a_data, hog1_ramp_data, hog1_ramp_inhib_data, pbs2_ramp_data, mapk_ptpD_data = exp_data
+    mapk_time, mapk_time_t100a_long, mapk_ramp_time = exp_time
+
+    mapk_time_t100a_0 = [0, 30, 60, 90, 120, 150, 180, 240, 300]
+
+    ss_inits = model_fxns.ss(model_fxns.m, inits, total_protein, params)
+
+    dt = 0.1
+    steps = 601
+    time = np.linspace(0,dt*steps,steps)
+    time_long = np.linspace(0,dt*3001,steps)
+
+    closest_idxs_mapk = [np.abs(time - t).argmin() for t in mapk_time]
+    closest_idxs_t100a_long = [np.abs(time_long - t).argmin() for t in mapk_time_t100a_0]
+    closest_idxs_ramp_time = [np.abs(time - t).argmin() for t in mapk_ramp_time]
+
+
+    mse_total = 0
+        # ptpDs
+    if ptpD:
+        mses = np.zeros(23)
+        ptp_doses = [0, 150000, 350000, 550000]
+        ptpD_total_protein = total_protein[:-1] + [0]
+        ptpD_inits = inits[:-1] + [0]
+
+        ptpD_ss_inits = model_fxns.ss(model_fxns.m, ptpD_inits, ptpD_total_protein, params)
+        # ptpD_ss_inits = model.run_ss_ptps(model_fxns.m, inits, total_protein, params)
+
+        for i, (dose, data) in enumerate(zip(ptp_doses, mapk_ptpD_data), 19):
+            odes = model_fxns.wt(model_fxns.m, ptpD_ss_inits, ptpD_total_protein, dose, params, time)
+            # odes = model.simulate_ptpD_experiment(model_fxns.m, ptpD_ss_inits, total_protein, dose, params, time)
+            mapk = odes[:,2]/total_protein[2]*100
+            mses[i] = np.sum((data - mapk[closest_idxs_mapk])**2)
+            mse_total += mses[i]
+
+    # WILDTYPE
+    # Hog1
+    else:
+        mses = np.zeros(19)
+
+    for i, (dose, data) in enumerate(zip(wt_doses, mapk_wt_data), 0):
+        odes = model_fxns.wt(model_fxns.m, ss_inits, total_protein, dose, params, time)#mapk_time)
         mapk = odes[:,2]/total_protein[2]*100
         mses[i] = np.sum((data - mapk[closest_idxs_mapk])**2)
         mse_total += mses[i]
@@ -369,12 +481,12 @@ def calc_sim_score(model_fxns, exp_data, exp_time, total_protein, inits, params,
     # Hog1
     for i, (dose, data) in enumerate(zip(wt_doses, mapk_t100a_data), 7):
         if dose == 0:
-            odes = model_fxns.t100a(model_fxns.m, wt_ss_inits, total_protein, dose, params, time_long)
+            odes = model_fxns.t100a(model_fxns.m, ss_inits, total_protein, dose, params, time_long)
             mapk = odes[:,2]/total_protein[2]*100
             mses[i] = np.sum((data - mapk[closest_idxs_t100a_long])**2)
             mse_total += mses[i]
         else:
-            odes = model_fxns.t100a(model_fxns.m, wt_ss_inits, total_protein, dose, params, time)
+            odes = model_fxns.t100a(model_fxns.m, ss_inits, total_protein, dose, params, time)
             mapk = odes[:,2]/total_protein[2]*100
             mses[i] = np.sum((data - mapk[closest_idxs_mapk])**2)
             mse_total += mses[i]
@@ -390,7 +502,7 @@ def calc_sim_score(model_fxns, exp_data, exp_time, total_protein, inits, params,
 
     # Hog1 ramp
     for data in hog1_ramp_data:
-        odes = model.simulate_wt_experiment(model_fxns.m, wt_ss_inits, total_protein, 0, params, time, run_type=['ramp'])
+        odes = model_fxns.wt(model_fxns.m, ss_inits, total_protein, 0, params, time, run_type=['ramp'])
         mapk = odes[:,2]/total_protein[2]*100
         # mses[18] = ((data - mapk[closest_idxs_ramp_time])**2).mean()
         mses[18] = sum((data - mapk[closest_idxs_ramp_time])**2)
@@ -434,7 +546,7 @@ def calc_sim_score_M2c_ptp(model_fxns, exp_data, exp_time, total_protein, inits,
     # mapk_data_t100a_0 = [mapk_t100a_data[0]]
     mapk_time_t100a_0 = [0, 30, 60, 90, 120, 150, 180, 240, 300]
 
-    wt_ss_inits = model.run_ss(model_fxns.m, inits, total_protein, params)
+    wt_ss_inits = model_fxns.ss(model_fxns.m, inits, total_protein, params)
 
     dt = 0.1
     steps = 601
@@ -454,11 +566,11 @@ def calc_sim_score_M2c_ptp(model_fxns, exp_data, exp_time, total_protein, inits,
         # ptpD_total_protein = total_protein[:-1] + [0]
         # ptpD_inits = inits[:-1] + [0]
 
-        ptpD_ss_inits = model.M2c_run_ptpD_ss(model_fxns.m, ptpD_inits, ptpD_total_protein, params)
+        ptpD_ss_inits = model.run_ss_M2c_ptpD(model_fxns.m, ptpD_inits, ptpD_total_protein, params)
         # ptpD_ss_inits = model.run_ss_ptps(model_fxns.m, inits, total_protein, params)
 
         for i, (dose, data) in enumerate(zip(ptp_doses[0], mapk_ptpD_data[0]), 19):
-            odes = model.M2c_simulate_ptpD_experiment(model_fxns.m, ptpD_ss_inits, total_protein, dose, params, time)
+            odes = model.simulate_ptpD_experiment_M2c_ptp(model_fxns.m, ptpD_ss_inits, total_protein, dose, params, time)
             # odes = model.simulate_ptpD_experiment(model_fxns.m, ptpD_ss_inits, total_protein, dose, params, time)
             mapk = odes[:,2]/total_protein[2]*100
             mses[i] = np.sum((data - mapk[closest_idxs_mapk])**2)
@@ -470,7 +582,7 @@ def calc_sim_score_M2c_ptp(model_fxns, exp_data, exp_time, total_protein, inits,
         mses = np.zeros(19)
 
     for i, (dose, data) in enumerate(zip(wt_doses, mapk_wt_data), 0):
-        odes = model.M2c_simulate_wt_experiment(model_fxns.m, wt_ss_inits, total_protein, dose, params, time)#mapk_time)
+        odes = model.wt(model_fxns.m, wt_ss_inits, total_protein, dose, params, time)#mapk_time)
         mapk = odes[:,2]/total_protein[2]*100
         mses[i] = np.sum((data - mapk[closest_idxs_mapk])**2)
         mse_total += mses[i]
@@ -511,7 +623,7 @@ def calc_sim_score_M2c_ptp(model_fxns, exp_data, exp_time, total_protein, inits,
 
     # Hog1 ramp
     for data in hog1_ramp_data:
-        odes = model.M2c_simulate_wt_experiment(model_fxns.m, wt_ss_inits, total_protein, 0, params, time, run_type=['ramp'])
+        odes = model.wt(model_fxns.m, wt_ss_inits, total_protein, 0, params, time, run_type=['ramp'])
         mapk = odes[:,2]/total_protein[2]*100
         # mses[18] = ((data - mapk[closest_idxs_ramp_time])**2).mean()
         mses[18] = sum((data - mapk[closest_idxs_ramp_time])**2)
@@ -528,13 +640,13 @@ def calc_sim_score_M2c_ptp(model_fxns, exp_data, exp_time, total_protein, inits,
     #     print("Hog1 fit to PtpD: " + str(sum(mses[19:])))
 
     # return mses
-    # if ptpD:
-    return sum(mses[:18])+mses[19]
+    if ptpD:
+        return sum(mses[:18])+mses[19]
     # elif full:
         # print(mses)
         # return mses
-    # else:
-        # return sum(mses[:18])
+    else:
+        return sum(mses[:18])
 
 
 def get_mse_stats(model_fxns, param_sets, total_protein, inits, ptpD=True):
@@ -555,7 +667,7 @@ def get_saved_thetas(f):
     return np.array(pd.read_csv(f).drop(['Unnamed: 0'], axis=1))
 
 
-def sort_mses_thetas(mses, thetas):
+def sort_sses_thetas(mses, thetas):
     re_idx = sorted(range(len(mses)), key=lambda k: mses[k])
     if type(thetas) == h5py._hl.dataset.Dataset:
         thetas = [thetas[x] for x in re_idx]
@@ -602,3 +714,17 @@ def make_conversion_matrix(number_of_params, minimums, maximums):
         arr_IandP[2,i] = maximums[i] #interp_range_max
 
     return arr_IandP
+
+def recalculate_score(thetas, model_fxns, exp_data, exp_time, params_constants, initials):
+    score_check = []
+    for t in thetas:
+        new_mse = calc_sim_score(model_fxns, exp_data, exp_time, params_constants, initials, t, ptpD=False, full=False, convert=(False,))
+        score_check.append(new_mse)
+    return score_check
+
+def recalculate_score_M2c_ptp(thetas, model_fxns, exp_data, exp_time, params_constants, initials):
+    score_check = []
+    for t in thetas:
+        new_mse = calc_sim_score_M2c_ptp(model_fxns, exp_data, exp_time, params_constants, initials, t, ptpD=False, full=False, convert=(False,))
+        score_check.append(new_mse)
+    return score_check

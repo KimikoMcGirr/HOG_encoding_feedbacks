@@ -9,13 +9,13 @@ import h5py
 import os
 
 import sys
-sys.path.insert(1, '../../python_modules/')
+sys.path.insert(1, '../python_modules/')
 import model
 import model_supp
 
 def get_data(local=False):
     if local:
-        base_f = 'C:/Users/sksuzuki/Desktop/killdevil/data/paper'
+        base_f = '../../exp_data/phospho_data'
     else:
         base_f = '/nas/longleaf/home/sksuzuki/data/paper'
 
@@ -68,7 +68,7 @@ def simulate_wt_experiment(m, inits, total_protein, sig, learned_params, time, r
     return odes
 
 def calc_mse(model_fxns, theta, exp_data, exp_time, params_constants, initials, ptpD=False):
-    mse = model_supp.calc_sim_score(model_fxns, exp_data, exp_time, params_constants, initials, theta, ptpD, convert=(False,))
+    mse = model_supp.calc_sim_score_original(model_fxns, exp_data, exp_time, params_constants, initials, theta, ptpD, convert=(False,))
     return mse
 # def draw_theta2():
 #     return 10**(-4+(4-(-4))*np.random.random(17))#np.random.uniform(.0001,1000,17)
@@ -163,7 +163,7 @@ def data_to_hdf5(dir_to_use, stripped_name, mses, thetas, c=None):
 def recalc_mses(model_fxns, EA_theta_set, exp_data, exp_time, params_constants, initials, ptpD=False):
     mses = []
     for params in EA_theta_set:
-        mses.append(model_supp.calc_sim_score(model_fxns, exp_data, exp_time, params_constants, initials, params, ptpD=False, convert=(False,)))
+        mses.append(model_supp.calc_sim_score_original(model_fxns, exp_data, exp_time, params_constants, initials, params, ptpD=False, convert=(False,)))
     re_idx = sorted(range(len(mses)), key=lambda k: mses[k])
     thetas = EA_theta_set[re_idx]
     mses = np.sort(mses)
@@ -207,7 +207,7 @@ def main(f, number_eas, particle_num):
 
 
 if __name__ == '__main__':
-    exp_data, exp_time = get_data(local=True)
+    exp_data, exp_time = get_data(local=False)
 
     MAP3K_t = molarity_conversion(123+1207+1611) #ssk2+ssk22+ste11
     MAP2K_t = molarity_conversion(4076)
@@ -227,9 +227,9 @@ if __name__ == '__main__':
     initials = [MAP3K, MAP2K, MAPK, gly]
     params_constants = [MAP3K_t, MAP2K_t, MAPK_t, 550000*2] #uM, except for gly (1) which is a placeholder for multiplying arrays together
 
-    model_fxn = model.Model(model.M2c_kb, model.simulate_t100a_experiment_M2a_kb, model.simulate_nopos_experiment_M2a_kb)
-    save_filename = '200902_M2c_abc_smc.txt'
+    model_fxn = model.Model(model.M2c, model.run_ss, model.simulate_wt_experiment, model.simulate_t100a_experiment_M2a)
+    save_filename = '200907_M2c_bare_abc_smc.txt'
     number_eas = 500
     particle_num = 1000
-    # main('/pine/scr/s/k/sksuzuki/HOG_model/Suzuki_2020/EA/200902_M2c/', number_eas, particle_num)
-    main('C:/Users/sksuzuki/Desktop/killdevil/runs_for_paper/paper/revisions/200902_M2c/', number_eas, particle_num)
+    main('../EA/200907_M2c_bare/', number_eas, particle_num)
+    # main('../../sim_data/EA/200907_M2c_bare/', number_eas, particle_num)

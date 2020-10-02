@@ -566,7 +566,7 @@ def calc_sim_score_M2c_ptp(model_fxns, exp_data, exp_time, total_protein, inits,
         # ptpD_total_protein = total_protein[:-1] + [0]
         # ptpD_inits = inits[:-1] + [0]
 
-        ptpD_ss_inits = model.run_ss_M2c_ptpD(model_fxns.m, ptpD_inits, ptpD_total_protein, params)
+        ptpD_ss_inits = model.run_ss_M2c_ptpD(model_fxns.m, inits, total_protein, params)
         # ptpD_ss_inits = model.run_ss_ptps(model_fxns.m, inits, total_protein, params)
 
         for i, (dose, data) in enumerate(zip(ptp_doses[0], mapk_ptpD_data[0]), 19):
@@ -582,7 +582,7 @@ def calc_sim_score_M2c_ptp(model_fxns, exp_data, exp_time, total_protein, inits,
         mses = np.zeros(19)
 
     for i, (dose, data) in enumerate(zip(wt_doses, mapk_wt_data), 0):
-        odes = model.wt(model_fxns.m, wt_ss_inits, total_protein, dose, params, time)#mapk_time)
+        odes = model_fxns.wt(model_fxns.m, wt_ss_inits, total_protein, dose, params, time)#mapk_time)
         mapk = odes[:,2]/total_protein[2]*100
         mses[i] = np.sum((data - mapk[closest_idxs_mapk])**2)
         mse_total += mses[i]

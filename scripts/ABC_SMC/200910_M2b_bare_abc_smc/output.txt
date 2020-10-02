@@ -9,7 +9,7 @@ import h5py
 import os
 
 import sys
-sys.path.insert(1, '../python_modules/')
+sys.path.insert(1, '../../python_modules/')
 import model
 import model_supp
 
@@ -38,7 +38,7 @@ def get_data(local=False):
     mapk_time, mapk_ptpD_data = load_csv_data(ptpD_folder)
     # mapk_time, sho1_wt_data = load_csv_data(ssk1D_folder)
     # mapk_time, sln1_wt_data = load_csv_data(sho1DD_folder)
-    data = [mapk_wt_data, mapk_t100a_data, map2k_wt_data, map2k_t100a_data, hog1_ramp_data, '_', '_', mapk_ptpD_data]
+    data = [mapk_wt_data, mapk_t100a_data, map2k_wt_data, map2k_t100a_data, hog1_ramp_data, mapk_ptpD_data]
     time = [mapk_time, mapk_time_t100a_long, mapk_ramp_time]
     return data, time
 
@@ -207,7 +207,7 @@ def main(f, number_eas, particle_num):
 
 
 if __name__ == '__main__':
-    exp_data, exp_time = get_data(local=False)
+    exp_data, exp_time = get_data(local=True)
 
     MAP3K_t = molarity_conversion(123+1207+1611) #ssk2+ssk22+ste11
     MAP2K_t = molarity_conversion(4076)
@@ -227,9 +227,9 @@ if __name__ == '__main__':
     initials = [MAP3K, MAP2K, MAPK, gly]
     params_constants = [MAP3K_t, MAP2K_t, MAPK_t, 550000*2] #uM, except for gly (1) which is a placeholder for multiplying arrays together
 
-    model_fxn = model.Model(model.M2c, model.run_ss, model.simulate_wt_experiment, model.simulate_t100a_experiment_M2a)
-    save_filename = '200907_M2c_bare_abc_smc.txt'
+    model_fxn = model.Model(model.M2b, model.run_ss, model.simulate_wt_experiment, model.simulate_t100a_experiment_M2a)
+    save_filename = '200910_M2b_bare_abc_smc.txt'
     number_eas = 500
     particle_num = 1000
-    main('../EA/200907_M2c_bare/', number_eas, particle_num)
-    # main('../../sim_data/EA/200907_M2c_bare/', number_eas, particle_num)
+    # main('../EA/200910_M2b_bare/', number_eas, particle_num)
+    main('../../sim_data/EA/200907_M2c_bare/', number_eas, particle_num)

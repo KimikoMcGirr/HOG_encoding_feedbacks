@@ -38,7 +38,7 @@ def get_data(local=False):
     mapk_time, mapk_ptpD_data = load_csv_data(ptpD_folder)
     # mapk_time, sho1_wt_data = load_csv_data(ssk1D_folder)
     # mapk_time, sln1_wt_data = load_csv_data(sho1DD_folder)
-    data = [mapk_wt_data, mapk_t100a_data, map2k_wt_data, map2k_t100a_data, hog1_ramp_data, mapk_ptpD_data]
+    data = [mapk_wt_data, mapk_t100a_data, map2k_wt_data, map2k_t100a_data, hog1_ramp_data,'_', '_', mapk_ptpD_data]
     time = [mapk_time, mapk_time_t100a_long, mapk_ramp_time]
     return data, time
 

@@ -9,7 +9,7 @@ import h5py
 import os
 
 import sys
-sys.path.insert(1, '../python_modules/')
+sys.path.insert(1, '../../python_modules/')
 import model
 import model_supp
 
@@ -79,7 +79,7 @@ def draw_thetas(sorted_params):
 
 def step_theta(theta, step):
     log_theta = np.log10(theta)
-    theta_prime = np.concatenate([10**(np.random.uniform(x-(.1/step),x+(.1/step),1)) for x in log_theta], axis=0)
+    theta_prime = np.concatenate([10**(np.random.uniform(x-(.1/(step+1)),x+(.1/(step+1)),1)) for x in log_theta], axis=0)
     return theta_prime
 
 def run_schedule_i(prior_thetas, ei, num_theta_primes, model_fxns, step):
@@ -207,7 +207,7 @@ def main(f, number_eas, particle_num):
 
 
 if __name__ == '__main__':
-    exp_data, exp_time = get_data(local=False)
+    exp_data, exp_time = get_data(local=True)
 
     MAP3K_t = molarity_conversion(123+1207+1611) #ssk2+ssk22+ste11
     MAP2K_t = molarity_conversion(4076)
@@ -231,5 +231,5 @@ if __name__ == '__main__':
     save_filename = '200907_M2c_bare_abc_smc.txt'
     number_eas = 500
     particle_num = 1000
-    main('../EA/200907_M2c_bare/', number_eas, particle_num)
+    main('../../sim_data/EA/200907_M2c_bare/', number_eas, particle_num)
     # main('../../sim_data/EA/200907_M2c_bare/', number_eas, particle_num)
